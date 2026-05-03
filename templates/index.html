@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teambition 级联查询工具</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f5f5f5; color: #1a1a1a; line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: white; padding: 20px 0; text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .header h1 { font-size: 1.5rem; font-weight: 600; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  .card {
+    background: white; border-radius: 8px; padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
+  }
+  .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; color: #1e293b; }
+
+  .form-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+
+  .form-group { display: flex; flex-direction: column; }
+  .form-group label { font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 4px; }
+  .form-group input, .form-group select {
+    padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+    font-size: 0.9rem; transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+
+  .checkbox-group {
+    display: flex; align-items: center; gap: 8px; padding-bottom: 2px;
+  }
+  .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; }
+  .checkbox-group label { font-size: 0.9rem; color: #334155; }
+
+  .btn {
+    padding: 8px 18px; border: none; border-radius: 6px;
+    font-size: 0.85rem; font-weight: 500; cursor: pointer;
+    transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: #2563eb; color: white; }
+  .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+  .btn-success { background: #16a34a; color: white; }
+  .btn-success:hover:not(:disabled) { background: #15803d; }
+  .btn-danger { background: #dc2626; color: white; }
+  .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+  .btn-outline { background: white; color: #64748b; border: 1px solid #d1d5db; }
+  .btn-outline:hover:not(:disabled) { background: #f8fafc; }
+  .btn-sm { padding: 4px 12px; font-size: 0.8rem; }
+  .hidden { display: none !important; }
+
+  /* Steps */
+  .step-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+  }
+  .step-label { font-weight: 500; font-size: 0.9rem; min-width: 160px; }
+  .step-stat { font-size: 0.8rem; color: #64748b; min-width: 90px; }
+  .step-bar-wrap { flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+  .step-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; width: 0%; }
+  .step-bar-fill.active { background: #2563eb; }
+  .step-bar-fill.done { background: #16a34a; }
+  .step-bar-fill.error { background: #dc2626; }
+
+  .error-list { font-size: 0.85rem; color: #dc2626; margin-top: 8px; max-height: 120px; overflow-y: auto; }
+  .error-item { padding: 2px 0; }
+
+  /* Results */
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .search-box {
+    padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+    font-size: 0.9rem; width: 280px;
+  }
+  .search-box:focus { outline: none; border-color: #2563eb; }
+  .stat-badge {
+    font-size: 0.85rem; color: #64748b; background: #f1f5f9;
+    padding: 4px 12px; border-radius: 12px;
+  }
+
+  .table-wrapper { overflow-x: auto; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 0.85rem;
+  }
+  th {
+    text-align: left; padding: 10px 12px; background: #f8fafc;
+    color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  th:hover { color: #2563eb; }
+  td {
+    padding: 8px 12px; border-bottom: 1px solid #f1f5f9;
+    max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  tr:hover td { background: #f8fafc; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 0.75rem; font-weight: 500;
+  }
+  .tag-done { background: #dcfce7; color: #15803d; }
+  .tag-undone { background: #fef3c7; color: #b45309; }
+  .tag-archived { background: #fce7f3; color: #be185d; }
+
+  .empty-state { text-align: center; padding: 40px; color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Teambition 项目-任务-工时 级联查询</h1>
+</div>
+
+<div class="container">
+
+  <!-- 配置面板 -->
+  <div class="card" id="configPanel">
+    <div class="card-title">查询配置</div>
+    <form id="queryForm" autocomplete="off">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="appId">App ID</label>
+          <input id="appId" name="app_id" required placeholder="Teambition App ID"
+                 value="{{ app_id }}">
+        </div>
+        <div class="form-group">
+          <label for="appSecret">App Secret</label>
+          <input id="appSecret" name="app_secret" type="password" required
+                 placeholder="Teambition App Secret" value="{{ app_secret }}">
+        </div>
+        <div class="form-group">
+          <label for="orgId">企业组织 ID</label>
+          <input id="orgId" name="org_id" required placeholder="Teambition Org ID"
+                 value="{{ org_id }}">
+        </div>
+        <div class="form-group">
+          <label for="pageSize">每页大小</label>
+          <select id="pageSize" name="page_size">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 12px; align-items: center;">
+        <div class="checkbox-group">
+          <input type="checkbox" id="includeArchived" name="include_archived">
+          <label for="includeArchived">包含已归档项目</label>
+        </div>
+        <button type="button" class="btn btn-primary" id="enterBtn" onclick="enterQuery()">进入查询</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 步骤面板 -->
+  <div class="card hidden" id="stepPanel">
+    <div class="card-title">查询步骤</div>
+
+    <!-- Step 1 -->
+    <div class="step-row">
+      <span class="step-label">Step 1: 获取项目列表</span>
+      <span class="step-stat" id="step1Stat">等待开始</span>
+      <div class="step-bar-wrap"><div class="step-bar-fill" id="step1Bar"></div></div>
+      <button class="btn btn-primary btn-sm" id="step1Btn" onclick="startStep1()">开始获取</button>
+      <button class="btn btn-danger btn-sm hidden" id="step1Stop" onclick="cancelStep()">取消</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-row">
+      <span class="step-label">Step 2: 获取任务</span>
+      <span class="step-stat" id="step2Stat">等待上一步完成</span>
+      <div class="step-bar-wrap"><div class="step-bar-fill" id="step2Bar"></div></div>
+      <button class="btn btn-primary btn-sm" id="step2Btn" onclick="startStep2()" disabled>开始获取</button>
+      <button class="btn btn-danger btn-sm hidden" id="step2Stop" onclick="cancelStep()">取消</button>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-row">
+      <span class="step-label">Step 3: 获取工时</span>
+      <span class="step-stat" id="step3Stat">等待上一步完成</span>
+      <div class="step-bar-wrap"><div class="step-bar-fill" id="step3Bar"></div></div>
+      <button class="btn btn-primary btn-sm" id="step3Btn" onclick="startStep3()" disabled>开始获取</button>
+      <button class="btn btn-danger btn-sm hidden" id="step3Stop" onclick="cancelStep()">取消</button>
+    </div>
+
+    <div class="error-list" id="errorList"></div>
+  </div>
+
+  <!-- 结果面板 -->
+  <div class="card hidden" id="resultPanel">
+    <div class="toolbar">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="card-title" style="margin-bottom:0;">查询结果</span>
+        <span class="stat-badge" id="resultSummary"></span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <input class="search-box" id="searchInput" type="text" placeholder="搜索项目名、任务内容...">
+        <button class="btn btn-success btn-sm hidden" id="downloadJson">下载 JSON</button>
+        <button class="btn btn-success btn-sm hidden" id="downloadCsv">下载 CSV</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="resultTable">
+        <thead>
+          <tr>
+            <th data-sort="project_name">项目名称</th>
+            <th data-sort="project_id">项目 ID</th>
+            <th data-sort="content">任务内容</th>
+            <th data-sort="is_done">状态</th>
+            <th data-sort="actual_hours">实际工时</th>
+            <th data-sort="planned_hours">计划工时</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none;">没有匹配的结果</div>
+  </div>
+
+</div>
+
+<script>
+let currentQueryId = null;
+let currentRows = [];
+let errorCount = 0;
+let eventSource = null;
+let runningStep = 0; // 1, 2, 3, or 0=none
+let abortController = null; // AbortController for cancelling in-flight fetch
+
+// ---- Step triggers ----
+
+function enterQuery() {
+  const appId = document.getElementById('appId').value.trim();
+  const appSecret = document.getElementById('appSecret').value.trim();
+  const orgId = document.getElementById('orgId').value.trim();
+  if (!appId || !appSecret || !orgId) {
+    alert('请填写 App ID、App Secret 和 企业组织 ID');
+    return;
+  }
+  document.getElementById('stepPanel').classList.remove('hidden');
+  document.getElementById('enterBtn').disabled = true;
+}
+
+async function startStep1() {
+  const form = document.getElementById('queryForm');
+  const fd = new FormData(form);
+  fd.set('include_archived', document.getElementById('includeArchived').checked);
+
+  document.getElementById('stepPanel').classList.remove('hidden');
+  resetAllSteps();
+
+  // 立即显示取消按钮（不等 fetch 返回）
+  runningStep = 1;
+  setStepRunning(1, true);
+
+  abortController = new AbortController();
+  try {
+    const resp = await fetch('/api/step/projects', {
+      method: 'POST', body: fd, signal: abortController.signal
+    });
+    abortController = null;
+    const { query_id } = await resp.json();
+    currentQueryId = query_id;
+    connectSSE();
+  } catch (err) {
+    abortController = null;
+    if (err.name === 'AbortError') {
+      setStepRunning(1, false);
+      runningStep = 0;
+      return;
+    }
+    setStepRunning(1, false);
+    runningStep = 0;
+    alert('启动失败: ' + err.message);
+  }
+}
+
+async function startStep2() {
+  if (!currentQueryId) return;
+  runningStep = 2;
+  setStepRunning(2, true);
+  resetStepUI(2);
+  errorCount = 0;
+  document.getElementById('errorList').innerHTML = '';
+
+  abortController = new AbortController();
+  try {
+    const fd = new FormData();
+    fd.set('page_size', document.getElementById('pageSize').value);
+    await fetch('/api/step/' + currentQueryId + '/tasks', {
+      method: 'POST', body: fd, signal: abortController.signal
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    alert('启动失败: ' + err.message);
+  } finally {
+    abortController = null;
+    if (runningStep === 2) setStepRunning(2, false);
+  }
+}
+
+async function startStep3() {
+  if (!currentQueryId) return;
+  runningStep = 3;
+  setStepRunning(3, true);
+  resetStepUI(3);
+  errorCount = 0;
+  document.getElementById('errorList').innerHTML = '';
+
+  abortController = new AbortController();
+  try {
+    await fetch('/api/step/' + currentQueryId + '/workhours', {
+      method: 'POST', signal: abortController.signal
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    alert('启动失败: ' + err.message);
+  } finally {
+    abortController = null;
+    if (runningStep === 3) setStepRunning(3, false);
+  }
+}
+
+// ---- Cancel ----
+
+async function cancelStep() {
+  // 终止正在进行的 fetch
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+  // 通知服务端取消
+  if (currentQueryId) {
+    await fetch('/api/step/' + currentQueryId, { method: 'DELETE' });
+  }
+  if (eventSource) eventSource.close();
+  setStepRunning(runningStep, false);
+  document.getElementById('step' + runningStep + 'Stat').textContent = '已取消';
+  document.getElementById('step' + runningStep + 'Bar').className = 'step-bar-fill error';
+  runningStep = 0;
+}
+
+// ---- SSE ----
+
+function connectSSE() {
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource('/api/step/' + currentQueryId + '/stream');
+
+  eventSource.addEventListener('step_start', (e) => {
+    const d = JSON.parse(e.data);
+    updateStepBar(d.step, 0, d.total);
+  });
+  eventSource.addEventListener('step_item', (e) => {
+    const d = JSON.parse(e.data);
+    updateStepBar(d.step, d.current, d.total);
+  });
+  eventSource.addEventListener('step_done', (e) => {
+    const d = JSON.parse(e.data);
+    markStepDone(d.step, d.count);
+    setStepRunning(d.step, false);
+    runningStep = 0;
+
+    // Unlock next step
+    if (d.step === 1) {
+      document.getElementById('step2Btn').disabled = false;
+      document.getElementById('step2Stat').textContent = '可以开始';
+    } else if (d.step === 2) {
+      document.getElementById('step3Btn').disabled = false;
+      document.getElementById('step3Stat').textContent = '可以开始';
+    }
+
+    // Show intermediate results
+    loadResults();
+
+    // Enable downloads if all done
+    if (d.step === 3) {
+      document.getElementById('downloadJson').classList.remove('hidden');
+      document.getElementById('downloadCsv').classList.remove('hidden');
+    }
+  });
+  eventSource.addEventListener('step_error', (e) => {
+    const d = JSON.parse(e.data);
+    const el = document.getElementById('errorList');
+    if (errorCount < 20) {
+      const div = document.createElement('div');
+      div.className = 'error-item';
+      div.textContent = d.item + ': ' + d.error;
+      el.appendChild(div);
+    }
+    errorCount++;
+    if (errorCount === 20) {
+      const div = document.createElement('div');
+      div.className = 'error-item';
+      div.textContent = '... 后续错误已省略（共 ' + errorCount + '+ 条）';
+      el.appendChild(div);
+    }
+  });
+  eventSource.addEventListener('cancelled', () => {
+    const stat = document.getElementById('step' + runningStep + 'Stat');
+    stat.textContent = '已取消';
+    document.getElementById('step' + runningStep + 'Bar').classList.add('error');
+    setStepRunning(runningStep, false);
+    runningStep = 0;
+  });
+  eventSource.addEventListener('all_done', () => {
+    eventSource.close();
+    loadResults();
+  });
+  eventSource.addEventListener('query_error', (e) => {
+    eventSource.close();
+    setStepRunning(runningStep, false);
+    runningStep = 0;
+    try {
+      const d = JSON.parse(e.data);
+      alert('查询失败: ' + d.message);
+    } catch (_) {
+      alert('查询失败，请检查网络连接');
+    }
+  });
+  eventSource.onerror = () => {};
+}
+
+// ---- Step UI helpers ----
+
+function resetAllSteps() {
+  for (let s = 1; s <= 3; s++) resetStepUI(s);
+  document.getElementById('step2Btn').disabled = true;
+  document.getElementById('step3Btn').disabled = true;
+  document.getElementById('step2Stat').textContent = '等待上一步完成';
+  document.getElementById('step3Stat').textContent = '等待上一步完成';
+  document.getElementById('errorList').innerHTML = '';
+  errorCount = 0;
+  document.getElementById('downloadJson').classList.add('hidden');
+  document.getElementById('downloadCsv').classList.add('hidden');
+  document.getElementById('resultPanel').classList.add('hidden');
+}
+
+function resetStepUI(step) {
+  const bar = document.getElementById('step' + step + 'Bar');
+  bar.style.width = '0%';
+  bar.className = 'step-bar-fill';
+  document.getElementById('step' + step + 'Stat').textContent =
+    step === 1 ? '等待开始' : '等待上一步完成';
+}
+
+function setStepRunning(step, running) {
+  document.getElementById('step' + step + 'Btn').classList.toggle('hidden', running);
+  document.getElementById('step' + step + 'Stop').classList.toggle('hidden', !running);
+  if (running) {
+    document.getElementById('step' + step + 'Bar').className = 'step-bar-fill active';
+  }
+}
+
+function updateStepBar(step, current, total) {
+  const bar = document.getElementById('step' + step + 'Bar');
+  const stat = document.getElementById('step' + step + 'Stat');
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  bar.style.width = pct + '%';
+  stat.textContent = current + '/' + total;
+}
+
+function markStepDone(step, count) {
+  const bar = document.getElementById('step' + step + 'Bar');
+  const stat = document.getElementById('step' + step + 'Stat');
+  bar.style.width = '100%';
+  bar.className = 'step-bar-fill done';
+  stat.textContent = '完成 (' + count + ' 条)';
+}
+
+// ---- Results ----
+
+async function loadResults() {
+  if (!currentQueryId) return;
+  const resp = await fetch('/api/step/' + currentQueryId + '/result');
+  const data = await resp.json();
+  if (!data.results) return;
+
+  const projects = data.results.projects || [];
+  const rows = [];
+  for (const proj of projects) {
+    for (const task of (proj.tasks || [])) {
+      const wh = task.work_hours || {};
+      rows.push({
+        project_name: proj.project_name,
+        project_id: proj.project_id,
+        is_archived: proj.is_archived,
+        task_id: task.task_id,
+        content: task.content,
+        is_done: task.is_done,
+        executor_id: task.executor_id,
+        actual_hours: wh.actual || 0,
+        planned_hours: wh.planned || 0,
+      });
+    }
+  }
+  currentRows = rows;
+
+  document.getElementById('resultPanel').classList.remove('hidden');
+  document.getElementById('resultSummary').textContent =
+    projects.length + ' 个项目, ' + rows.length + ' 条任务';
+
+  renderTable(rows);
+
+  document.getElementById('downloadJson').onclick = () => download('json');
+  document.getElementById('downloadCsv').onclick = () => download('csv');
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('tableBody');
+  const empty = document.getElementById('emptyState');
+  tbody.innerHTML = '';
+
+  if (rows.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const nameHtml = r.is_archived
+      ? r.project_name + ' <span class="tag tag-archived">已归档</span>'
+      : r.project_name;
+    tr.innerHTML =
+      '<td>' + nameHtml + '</td>' +
+      '<td>' + r.project_id + '</td>' +
+      '<td>' + escapeHtml(r.content) + '</td>' +
+      '<td>' + (r.is_done
+        ? '<span class="tag tag-done">已完成</span>'
+        : '<span class="tag tag-undone">未完成</span>') + '</td>' +
+      '<td>' + r.actual_hours + 'h</td>' +
+      '<td>' + r.planned_hours + 'h</td>';
+    tbody.appendChild(tr);
+  }
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// Search
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  const filtered = currentRows.filter(r =>
+    r.project_name.toLowerCase().includes(q) ||
+    r.content.toLowerCase().includes(q) ||
+    r.project_id.toLowerCase().includes(q)
+  );
+  renderTable(filtered);
+});
+
+// Sort
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const field = th.dataset.sort;
+    const asc = th.classList.toggle('asc');
+    currentRows.sort((a, b) => {
+      let va = a[field], vb = b[field];
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      if (va < vb) return asc ? -1 : 1;
+      if (va > vb) return asc ? 1 : -1;
+      return 0;
+    });
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = q
+      ? currentRows.filter(r =>
+          r.project_name.toLowerCase().includes(q) ||
+          r.content.toLowerCase().includes(q) ||
+          r.project_id.toLowerCase().includes(q))
+      : currentRows;
+    renderTable(filtered);
+  });
+});
+
+function download(format) {
+  window.open('/api/step/' + currentQueryId + '/download?format=' + format, '_blank');
+}
+</script>
+
+</body>
+</html>
