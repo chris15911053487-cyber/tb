@@ -9,9 +9,10 @@ class APIError(Exception):
 
 
 class APIClient:
-    def __init__(self, auth, max_retries=3, timeout=30):
+    def __init__(self, auth, max_retries=3, timeout=30, log_callback=None):
         self.auth = auth
         self.timeout = timeout
+        self.log_callback = log_callback
         self.session = requests.Session()
         retry_strategy = Retry(
             total=max_retries,
@@ -29,6 +30,18 @@ class APIClient:
         resp = self.session.request(method, url, **kwargs)
         data = resp.json()
         code = data.get("code", 0)
+        if self.log_callback:
+            self.log_callback(
+                method=method,
+                path=path,
+                url=url,
+                req_params=kwargs.get("params"),
+                req_body=kwargs.get("json"),
+                req_headers=dict(kwargs.get("headers", {})),
+                status_code=resp.status_code,
+                api_code=code,
+                error="" if code in (0, 200) else data.get("errorMessage", data.get("errorCode", "")),
+            )
         if code not in (0, 200):
             raise APIError(
                 f"{method} {path} failed: code={code} "

@@ -96,10 +96,11 @@ def main():
 
     # --- 统计 ---
     project_count = len(results["projects"])
-    task_count = sum(len(p["tasks"]) for p in results["projects"])
+    stage_count = len(results["stages"])
+    task_count = len(results["tasks"])
     hours_count = sum(
-        1 for p in results["projects"]
-        for t in p["tasks"] if t.get("work_hours")
+        1 for t in results["tasks"]
+        if t.get("actual_hours", 0) > 0 or t.get("planned_hours", 0) > 0
     )
 
     # --- 导出 ---
@@ -108,20 +109,18 @@ def main():
         if not out_path.endswith(".csv"):
             out_path += ".csv"
         rows = []
-        for proj in results["projects"]:
-            for task in proj["tasks"]:
-                wh = task.get("work_hours") or {}
-                rows.append({
-                    "project_id": proj["project_id"],
-                    "project_name": proj["project_name"],
-                    "project_archived": proj["is_archived"],
-                    "task_id": task["task_id"],
-                    "task_content": task["content"],
-                    "task_done": task["is_done"],
-                    "task_executor": task["executor_id"],
-                    "actual_hours": wh.get("actual", 0),
-                    "planned_hours": wh.get("planned", 0),
-                })
+        for task in results["tasks"]:
+            rows.append({
+                "project_id": task["project_id"],
+                "project_name": task["project_name"],
+                "stage_id": task["stage_id"],
+                "task_id": task["task_id"],
+                "task_content": task["content"],
+                "task_done": task["is_done"],
+                "task_executor": task["executor_id"],
+                "actual_hours": task.get("actual_hours", 0),
+                "planned_hours": task.get("planned_hours", 0),
+            })
         Exporter.to_csv(rows, out_path)
     else:
         if not out_path.endswith(".json"):
@@ -131,6 +130,7 @@ def main():
     display.console.print(f"\n[green]导出完成: {out_path}[/]")
     display.show_summary({
         "项目数": project_count,
+        "任务列表(Stage)": stage_count,
         "任务数": task_count,
         "工时记录": hours_count,
         "输出文件": out_path,

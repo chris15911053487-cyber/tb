@@ -9,6 +9,7 @@ def auth():
     a = TeambitionAuth(app_id="x", app_secret="y", org_id="z")
     a._token = "test-token"  # 跳过真实 token 请求
     a._expires_at = float("inf")
+    a._operator_id = "op-1"  # 跳过 org/owners 请求
     return a
 
 
@@ -37,10 +38,10 @@ def test_get_raises_api_error_on_failure(client):
     responses.add(
         responses.GET,
         "https://open.teambition.com/api/v3/fail",
-        json={"error": "not_found"},
+        json={"code": 404, "errorMessage": "not_found"},
         status=404,
     )
-    with pytest.raises(APIError, match="404"):
+    with pytest.raises(APIError, match="code=404"):
         client.get("/v3/fail")
 
 

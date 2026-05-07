@@ -14,19 +14,17 @@ class WorkHoursFetcher:
         self.client = client
 
     def fetch_for_task(self, task_id):
-        actual = self._sum_hours(f"/worktime/list/task/{task_id}", "workHours")
-        planned = self._sum_hours(f"/plantime/list/task/{task_id}", "planHours")
+        actual = self._sum_hours(f"/worktime/list/task/{task_id}", "worktime")
         return WorkHours(
             task_id=task_id,
             actual_hours=actual,
-            planned_hours=planned,
         )
 
     def _sum_hours(self, path, field):
         try:
             total = 0.0
             for item in self.client.paginate(path):
-                total += item.get(field, 0)
+                total += item.get(field, 0) / 3600000  # API 返回毫秒
             return total
         except Exception:
             return 0.0

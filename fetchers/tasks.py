@@ -1,4 +1,4 @@
-"""获取指定项目下的任务列表。"""
+"""获取指定项目下的全部任务。"""
 from dataclasses import dataclass
 
 
@@ -9,6 +9,7 @@ class Task:
     content: str
     is_done: bool = False
     executor_id: str = ""
+    stage_id: str = ""
 
 
 class TasksFetcher:
@@ -18,7 +19,8 @@ class TasksFetcher:
     def fetch_for_project(self, project_id, page_size=50):
         tasks = []
         for raw in self.client.paginate(
-            f"/v3/project/{project_id}/task/query", page_size=page_size
+            f"/v3/project/{project_id}/task/query",
+            page_size=page_size,
         ):
             task = Task(
                 id=raw.get("taskId") or raw.get("_id") or raw.get("id", ""),
@@ -26,6 +28,7 @@ class TasksFetcher:
                 content=raw.get("content", ""),
                 is_done=raw.get("isDone", False),
                 executor_id=raw.get("executorId") or raw.get("_executorId", ""),
+                stage_id=raw.get("stageId") or raw.get("_stageId", ""),
             )
             tasks.append(task)
         return tasks
